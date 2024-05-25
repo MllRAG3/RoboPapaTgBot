@@ -11,5 +11,5 @@ def start(message: Message):
 
 if __name__ == '__main__':
     create_all_database_tables()
-    BOT.infinity_polling()
     print('Bot has been started successfully!')
+    BOT.infinity_polling()

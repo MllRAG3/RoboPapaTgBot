@@ -1,4 +1,3 @@
-from modules.database.models.users import Users, Subscribed
 from modules.database.models.replicas import Replica
 from modules.database.models.requireds import Requires
 
@@ -10,6 +9,4 @@ def create_all_database_tables():
         db.create_tables([
             Requires,
             Replica,
-            Users,
-            Subscribed,
         ])

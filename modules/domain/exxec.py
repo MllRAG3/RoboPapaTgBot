@@ -1,59 +1,83 @@
-from telebot.types import Message, User, InlineKeyboardMarkup, InlineKeyboardButton
+from telebot.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from modules.constants.tg_bot import BOT
-from modules.database.models.users import Users, Subscribed
+from modules.constants.morph import R_ANAL
 from modules.database.models.requireds import Requires
 from modules.database.models.replicas import Replica
 
 
 class Exec:
-    def __init__(self, message: Message, user: User | None = None):
+    def __init__(self, message: Message):
+        """
+        :param message: Объект класса telebot.types.Message - информация обо всем контексте общения с ботом
+        """
         self.message: Message = message
-        self.telebot_user: User = message.from_user if user is None else user
-
-        self.db_user: Users | None = None
-        self.load_or_create_db_user()
-
-    def load_or_create_db_user(self):
-        try:
-            self.db_user = Users.get(tg_id=self.telebot_user.id)
-        except AttributeError:
-            data = {'tg_id': self.telebot_user.id, 'username': self.telebot_user.username}
-            new_user = Users.create(**data)
-            self.db_user = new_user
 
     def send(self, text, **additional):
+        """
+        Отправляет новое сообщение
+        :param text: текст сообщения
+        :param additional: дополнительные параметры при отправке
+        (ключи должны совпадать с именованными аргументами TeleBot.send_message(...))
+        :return:
+        """
         BOT.send_message(chat_id=self.message.chat.id, text=text, **additional)
 
     def start(self):
+        """
+        Обрабатывает команду /start
+        :return:
+        """
         if not self.check_all_subs():
             self.send('Вы не подписались на все необходимые каналы!')
             self.send(
                 'Список каналов, на которые нужно подписаться:\n',
-                reply_markup=InlineKeyboardMarkup(row_width=1).add(*map(lambda x: InlineKeyboardButton(f'Канал {x.id}', url=f'https://t.me/{x.channel_id}'), Requires.select()))
+                reply_markup=InlineKeyboardMarkup(row_width=1).add(*map(lambda x: InlineKeyboardButton(f'Канал {x.id}', url=f'https://t.me/{x.channel_link}'.replace('@', '')), Requires.select()))
             )
             return
         self.send('Привет! О чем поболтаем?')
         self.reg_user_input()
 
     def check_all_subs(self):
-        recs = Requires.select()
-        for r in recs:
+        """
+        Проверяет, подписан ли пользователь на все каналы в таблице Requires
+        :return:
+        """
+        for channel in Requires.select():
             try:
-                BOT.get_chat_member(chat_id=r.channel_id, user_id=self.telebot_user.id)
-                if Subscribed.select().where(Subscribed.chan_id == r.channel_id):
-                    continue
-                Subscribed.create(user=self.db_user, chan_id=r.channel_id)
+                BOT.get_chat_member(chat_id=channel.channel_link, user_id=self.message.from_user.id)
             except Exception as e:
-                not_found = e
-                return False
-
+                error = e
+                return False  # user not found in current channel
         return True
 
     def reg_user_input(self):
+        """
+        Обрабатывает следующее отправленное сообщение
+        :return:
+        """
         BOT.register_next_step_handler(self.message, callback=self.send_answer)
 
     def send_answer(self, message: Message):
-        reps = Replica.select().where(Replica.key.contains(message.text))
-        if not reps:
-            self.send('Ты сказал какую-то чепуху, я тебя не понимаю, черт возьми! Можешь повторить?')
-        self.send(reps[0].answer)
+        """
+        Отправляет ответ из таблицы Replica с наибольшим совпадением текста сообщения и
+        колонки key
+        :param message: сообщение (передается автоматически методом TeleBot.register_next_step_handler(...))
+        :return:
+        """
+        best = []
+
+        for rep in Replica.select():
+            same = 0
+            base = list(map(lambda x: R_ANAL.parse(x)[0].word.lower(), rep.key.split()))
+            for w in message.text.split():
+                same += int(R_ANAL.parse(w)[0].word.lower() in base)
+            same_percent = (same / len(message.text.split())) * 100
+            best.append((rep, same_percent))
+
+        best = max(best, key=lambda x: x[1])
+        if best[1] < 5.0:
+            self.send('Я тебя не понимаю! Ты сказал что-то невнятное, повтори')
+            self.reg_user_input()
+            return
+        self.send(best[0].answer)
+        self.reg_user_input()
