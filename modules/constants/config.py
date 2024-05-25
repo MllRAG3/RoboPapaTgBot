@@ -1,3 +1,3 @@
 from typing import Final
 
-BOT_TKN: Final[str] = ""
+BOT_TKN: Final[str] = "..."
