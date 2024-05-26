@@ -30,7 +30,7 @@ class Exec:
         if not self.check_all_subs():
             self.send('Вы не подписались на все необходимые каналы!')
             self.send(
-                'Список каналов, на которые нужно подписаться:\n',
+                'Список каналов, на которые нужно подписаться (как только закончишь напиши /start):\n',
                 reply_markup=InlineKeyboardMarkup(row_width=1).add(*map(lambda x: InlineKeyboardButton(f'Канал {x.id}', url=f'https://t.me/{x.channel_link}'.replace('@', '')), Requires.select()))
             )
             return
