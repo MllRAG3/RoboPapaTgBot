@@ -2,7 +2,7 @@ from telebot.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from modules.constants.tg_bot import BOT
 from modules.constants.morph import R_ANAL
 from modules.database.models.requireds import Requires
-from modules.database.models.replicas import Replica
+from modules.database.models.replicas import Key, Answer
 
 
 class Exec:
