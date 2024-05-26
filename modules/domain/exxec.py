@@ -8,6 +8,8 @@ from modules.constants.morph import R_ANAL
 from modules.database.models.requireds import Requires
 from modules.database.models.replicas import Key, Answer
 
+CONTEXT: dict = {'context': '', 'dice': -1}
+
 
 class Exec:
     def __init__(self, message: Message, user: User | None = None):
@@ -75,6 +77,8 @@ class Exec:
             case _:
                 raise TypeError('Указан неверный тип формата сообщения! Допустимые значения см. modules/types/util')
 
+        return -1
+
     def start(self):
         """
         Обрабатывает команду /start
@@ -117,19 +121,47 @@ class Exec:
         :param message: сообщение (передается автоматически методом TeleBot.register_next_step_handler(...))
         :return:
         """
+        global CONTEXT
+        print(CONTEXT)
         percent_results = []
 
         for key in Key.select():
-            base = list(map(lambda x: R_ANAL.parse(x)[0].word.lower(), key.key.split()))
-            same = sum([int(R_ANAL.parse(w)[0].word.lower() in base) for w in message.text.split()])
+            dict_k = json.loads(key.key)
+            if set(dict_k.keys()) != {'dice', 'by_user', 'by_bot'}:
+                raise KeyError('В словаре (таблица Key) недостаточно ключей! Необходимы: {"dice", "by_user", "by_bot"}')
+
+            exp_user_ans = list(map(lambda x: R_ANAL.parse(x)[0].word.lower(), dict_k['by_user'].split()))
+            exp_context = list(map(lambda x: R_ANAL.parse(x)[0].word.lower(), dict_k['by_bot'].split()))
+            exp_dice = dict_k['dice']
+            if CONTEXT != {}:
+                same = 0
+                same += sum([int(R_ANAL.parse(w)[0].word.lower() in exp_user_ans) for w in message.text.split()])
+                print(same)
+                same += sum([int(R_ANAL.parse(w)[0].word.lower() in exp_context) for w in CONTEXT['context'].split()])
+                print(same)
+                if CONTEXT['dice'] != -1:
+                    same += int(abs(CONTEXT['dice'] - exp_dice))
+                print(same)
+            else:
+                same = 0
+                same += sum([int(R_ANAL.parse(w)[0].word.lower() in exp_user_ans) for w in message.text.split()])
+
             percent_results.append((key, (same / len(message.text.split())) * 100))
 
-        best: tuple[Key, float] = max(percent_results, key=lambda x: x[1])
-        if best[1] < 5.0:
-            self.send('Я тебя не понимаю! Ты сказал что-то невнятное, повтори')
-            self.reg_user_input()
-            return
-
         ans: Answer = random.choice(max(percent_results, key=lambda x: x[1])[0].answers)
-        self.send(type_value=ans.main_param, type=ans.type, **json.loads(ans.additional_json))
+        ans_to_send = json.loads(ans.texts_json)[0]
+        if set(ans_to_send) != {'type', 'additional', 'par'}:
+            raise KeyError('Недостаточно ключей! (Необходимы: {"type", "additional", "par"})')
+        CONTEXT = {'context': ans_to_send['par'], 'dice': int(self.send(type_value=ans_to_send['par'], type=ans_to_send['type'], **json.loads(ans_to_send['additional'])))}
+        if len(json.loads(ans.texts_json)) > 1:
+            self.send_next(ans.id)
         self.reg_user_input()
+
+    def send_next(self, ans_id, ind=1):
+        global CONTEXT
+        ans: Answer = Answer.get_by_id(ans_id)
+        print(json.loads(ans.texts_json))
+        ans_to_send = json.loads(ans.texts_json)[ind]
+        if len(json.loads(ans.texts_json)) - 1 > ind:
+            self.send_next(ans.id, ind=(ind + 1))
+        CONTEXT = {'context': ans_to_send['par'], 'dice': int(self.send(type_value=ans_to_send['par'], type=ans_to_send['type'], **json.loads(ans_to_send['additional'])))}

@@ -8,6 +8,4 @@ class Key(BaseModel):
 
 class Answer(BaseModel):
     key = ForeignKeyField(Key, backref='answers')
-    type = CharField(max_length=32)
-    main_param = CharField()
-    additional_json = CharField(max_length=8192)
+    texts_json = CharField()  # [{"par": ..., "type": ..., "additional": {...}}, ...] - шаблон
