@@ -9,6 +9,11 @@ def start(message: Message):
     Exec(message).start()
 
 
+@BOT.message_handler(content_types=['text'])
+def send(message: Message):
+    Exec(message).send_answer(message)
+
+
 if __name__ == '__main__':
     create_all_database_tables()
     print('Bot has been started successfully!')
