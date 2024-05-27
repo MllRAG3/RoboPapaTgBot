@@ -1,5 +1,6 @@
 import random
 import time
+import datetime
 try:
     import ujson as json
 except ImportError:
@@ -7,9 +8,9 @@ except ImportError:
 
 from telebot.types import Message, User, InlineKeyboardMarkup, InlineKeyboardButton
 from modules.constants.tg_bot import BOT
-from modules.constants.morph import R_ANAL
 from modules.database.models.requireds import Requires
-from modules.database.models.replicas import Key, Answer
+from modules.domain.json_reader import JsonReader
+from modules.database.models.users import TgUser
 
 CONTEXT: dict = {'context': '', 'dice': -1}
 
@@ -22,6 +23,12 @@ class Exec:
         self.message: Message = message
         self.tb_user: User = message.from_user if user is None else user
         self.chat_id = message.chat.id
+        self.database_user: TgUser = TgUser.get_or_create(telegram_id=self.tb_user.id)[0]
+
+        print(self.database_user.last_activity)
+        self.database_user.last_activity = datetime.datetime.now()
+        print(self.database_user.last_activity)
+        TgUser.save(self.database_user)
 
     def send(self, type_value, type='text', **kwargs):
         """
@@ -80,7 +87,7 @@ class Exec:
             case _:
                 raise TypeError('Указан неверный тип формата сообщения! Допустимые значения см. modules/types/util')
 
-        return -1
+        return 0
 
     def start(self):
         """
@@ -95,7 +102,6 @@ class Exec:
             )
             return
         self.send('Привет! О чем поболтаем?')
-        self.reg_user_input()
 
     def check_all_subs(self):
         """
@@ -110,13 +116,6 @@ class Exec:
                 return False  # user not found in current channel
         return True
 
-    def reg_user_input(self):
-        """
-        Обрабатывает следующее отправленное сообщение
-        :return:
-        """
-        BOT.register_next_step_handler(self.message, callback=self.send_answer)
-
     def send_answer(self, message: Message):
         """
         Отправляет ответ из таблицы Replica с наибольшим совпадением текста сообщения и
@@ -125,38 +124,6 @@ class Exec:
         :return:
         """
         global CONTEXT
-        percent_results = []  # [{"type": ..., "type_value", "kwargs_json": {...}}, ...] - шаблон
-
-        for key in Key.select():
-            dict_k = json.loads(key.key)
-            if set(dict_k.keys()) != {'by_user', 'by_bot'}:
-                raise KeyError('В словаре (таблица Key) недостаточно ключей! Необходимы: {"by_user", "by_bot"}')
-
-            exp_user_ans = list(map(lambda x: R_ANAL.parse(x)[0].word.lower(), dict_k['by_user'].split()))
-            exp_context = list(map(lambda x: R_ANAL.parse(x)[0].word.lower(), dict_k['by_bot'].split()))
-            if CONTEXT != {}:
-                same = 0
-                same += sum([int(R_ANAL.parse(w)[0].word.lower() in exp_user_ans) for w in message.text.split()])
-                same += sum([int(R_ANAL.parse(w)[0].word.lower() in exp_context) for w in CONTEXT['context'].split()])
-            else:
-                same = 0
-                same += sum([int(R_ANAL.parse(w)[0].word.lower() in exp_user_ans) for w in message.text.split()])
-
-            percent_results.append((key, (same / len(message.text.split())) * 100))
-
-        ans: Answer = random.choice(max(percent_results, key=lambda x: x[1])[0].answers)
-        ans_to_send = json.loads(ans.texts_json)[0]
-        if set(ans_to_send) != {'type', 'additional', 'par'}:
-            raise KeyError('Недостаточно ключей! (Необходимы: {"type", "additional", "par"})')
-        CONTEXT = {'context': ans_to_send['par'], 'dice': int(self.send(type_value=ans_to_send['par'], type=ans_to_send['type'], **json.loads(ans_to_send['additional'])))}
-        if len(json.loads(ans.texts_json)) > 1:
-            self.send_next(ans.id)
-        self.reg_user_input()
-
-    def send_next(self, ans_id, ind=1):
-        global CONTEXT
-        ans: Answer = Answer.get_by_id(ans_id)
-        ans_to_send = json.loads(ans.texts_json)[ind]
-        if len(json.loads(ans.texts_json)) - 1 > ind:
-            self.send_next(ans.id, ind=(ind + 1))
-        CONTEXT = {'context': ans_to_send['par'], 'dice': int(self.send(type_value=ans_to_send['par'], type=ans_to_send['type'], **json.loads(ans_to_send['additional'])))}
+        for to_send in JsonReader(message, CONTEXT)():
+            CONTEXT['context'] = to_send['type_value']
+            CONTEXT['dice'] = self.send(**to_send)
