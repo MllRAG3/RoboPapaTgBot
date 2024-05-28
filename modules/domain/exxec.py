@@ -72,12 +72,12 @@ class Exec:
                 BOT.send_chat_action(self.chat_id, 'upload_document')
                 time.sleep(random.randint(1, 5))
                 BOT.send_document(self.chat_id, open(type_value, 'rb'), **kwargs)  # has caption
-            case 'animation':
+            case 'video':
                 BOT.send_chat_action(self.chat_id, 'record_video')
                 time.sleep(random.randint(1, 5))
                 BOT.send_chat_action(self.chat_id, 'upload_video')
                 time.sleep(random.randint(1, 5))
-                BOT.send_animation(self.chat_id, animation=open(type_value, 'rb'), **kwargs)  # has caption
+                BOT.send_video(self.chat_id, video=open(type_value, 'rb'), **kwargs)  # has caption
             case 'video_note':
                 BOT.send_chat_action(self.chat_id, 'record_video_note')
                 time.sleep(random.randint(1, 5))
