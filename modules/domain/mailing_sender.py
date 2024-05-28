@@ -5,7 +5,7 @@ try:
 except ImportError:
     import json
 
-from telebot.types import Message, User, InlineKeyboardMarkup
+from telebot.types import InlineKeyboardMarkup
 from modules.constants.tg_bot import BOT
 
 from modules.database.models.mailing_messages import MailingMessages
@@ -17,8 +17,6 @@ class MailingSender:
     def send(chat_id: int, type: str, content_json: str, buttons_json: str | None):
         content = json.loads(content_json)
         match type:
-            case 'text':
-                BOT.send_message(chat_id, **content, reply_markup=InlineKeyboardMarkup.de_json(buttons_json))
             case 'photo':
                 BOT.send_photo(chat_id, **content, reply_markup=InlineKeyboardMarkup.de_json(buttons_json))
             case 'video':
