@@ -14,3 +14,10 @@ def check_d_keys_for_answer(dict_):
     if set(dict_.keys()) != REQUIRED_D_KEYS_FOR_ANSWER:
         raise KeyError(f'Недостаточно ключей!\nНеобходимы: {REQUIRED_D_KEYS_FOR_ANSWER}\nПолучены: {set(dict_.keys)}')
     return True
+
+
+def extract_buttons(message):
+    buttons = message.reply_markup
+    if buttons:
+        buttons = buttons.to_dict()
+    return buttons
