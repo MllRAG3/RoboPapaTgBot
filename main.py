@@ -1,6 +1,7 @@
 from telebot.types import Message
 from modules.constants.tg_bot import BOT
 from modules.domain.exxec import Exec
+from modules.domain.mailing_sender import MailingSender
 from modules.database.util.create_all import create_all_database_tables
 
 
@@ -11,6 +12,7 @@ def start(message: Message):
 
 @BOT.message_handler(content_types=['text'])
 def send(message: Message):
+    MailingSender().send_all()
     Exec(message).send_answer(message)
 
 

@@ -23,11 +23,9 @@ class Exec:
         self.message: Message = message
         self.tb_user: User = message.from_user if user is None else user
         self.chat_id = message.chat.id
-        self.database_user: TgUser = TgUser.get_or_create(telegram_id=self.tb_user.id)[0]
+        self.database_user: TgUser = TgUser.get_or_create(telegram_id=self.tb_user.id, chat_id=self.chat_id)[0]
 
-        print(self.database_user.last_activity)
         self.database_user.last_activity = datetime.datetime.now()
-        print(self.database_user.last_activity)
         TgUser.save(self.database_user)
 
     def send(self, type_value, type='text', **kwargs):
