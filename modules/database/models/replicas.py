@@ -8,4 +8,4 @@ class Key(BaseModel):
 
 class Answer(BaseModel):
     key = ForeignKeyField(Key, backref='answers')
-    texts_json = CharField()  # [{"type": ..., "type_value", "kwargs_json": {...}}, ...] - шаблон
+    texts_json = CharField()

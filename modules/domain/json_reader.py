@@ -38,6 +38,10 @@ class JsonReader:
         result = []
         for r in json.loads(random.choice(max(self.to_percents(), key=lambda y: y[1])[0].answers).texts_json):
             util.check_d_keys_for_answer(r)
-            result.append({'type_value': r['type_value'], 'type': r['type'], **r['kwargs_json']})
+            result.append({
+                'type': r['type'],
+                'content_json': r['data'],
+                'buttons_json': r['buttons'],
+            })
 
         return result

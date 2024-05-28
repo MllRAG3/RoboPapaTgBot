@@ -12,8 +12,8 @@ from typing import Callable
 class ToJson:
     def __init__(self):
         self.TYPES: dict[str | Callable] = {
-            'photo': self.photo_message_to_dict,
-            'video': self.video_message_to_dict,
+            'photo': self.photo_to_dict,
+            'video': self.video_to_dict,
             'video_note': self.video_note_to_dict,
             'contact': self.contact_to_dict,
             'text': self.text_to_dict,
@@ -26,7 +26,7 @@ class ToJson:
         self.is_called: bool = False
 
     @staticmethod
-    def photo_message_to_dict(message: Message) -> tuple[dict, dict | None]:
+    def photo_to_dict(message: Message) -> tuple[dict, dict | None]:
         data = {
             'photo': message.photo[0].file_id,
             'caption': message.caption,
@@ -36,7 +36,7 @@ class ToJson:
         return data, util.extract_buttons(message)
 
     @staticmethod
-    def video_message_to_dict(message: Message) -> tuple[dict, dict | None]:
+    def video_to_dict(message: Message) -> tuple[dict, dict | None]:
         data = {
             'video': message.video.file_id,
             'caption': message.caption,
@@ -115,5 +115,5 @@ class ToJson:
         if not self.is_called:
             raise NotImplementedError('Перед преобразованием в строку необходимо вызвать объект класса!')
 
-        return "<b>json текста, медиа и параметров форматирования:</b>\n<code>{}</code>\n\n<b>json " \
-               "кнопок:</b>\n<code>{}</code>".format(*self.jsons)
+        return '<b>json текста, медиа и параметров форматирования:</b>\n<code>{}</code>\n\n<b>json ' \
+               'кнопок:</b>\n<code>{}</code>'.format(*self.jsons)
