@@ -1,4 +1,4 @@
-from peewee import CharField
+from peewee import IntegerField, CharField
 from modules.database.models.base import BaseModel
 
 
@@ -11,4 +11,5 @@ class Requires(BaseModel):
     channel_link (str)
       имя канала в формате @sus_channel_name
     """
+    channel_id = IntegerField()
     channel_link = CharField()
