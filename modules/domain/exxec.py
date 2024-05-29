@@ -178,5 +178,5 @@ class Exec:
             return
 
         for to_send in JsonReader(message, CONTEXT)():
-            CONTEXT['context'] = to_send['type_value']
+            CONTEXT['context'] = message.text
             CONTEXT['dice'] = self.send(**to_send)
