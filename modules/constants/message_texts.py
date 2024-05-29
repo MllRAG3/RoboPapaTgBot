@@ -1,3 +1,4 @@
+"""Все тексты для сообщений бота"""
 from typing import Final
 
 MESSAGE_TO_EDIT_NOT_FOUND_ERROR: Final[str] = "Ой, ошибочка вышла! Ожидай, наш верный программист все починит "\
