@@ -8,7 +8,7 @@ try:
 except ImportError:
     import json
 
-from telebot.types import Message, User, InlineKeyboardMarkup, InlineKeyboardButton
+from telebot.types import Message, User, InlineKeyboardMarkup, InlineKeyboardButton, ChatMember, ChatMemberMember
 from modules.constants.tg_bot import BOT
 from modules.database.models.requireds import Requires
 from modules.domain.json_reader import JsonReader
@@ -36,7 +36,13 @@ class DynamicPicCounter:
 
     def send_all(self):
         for chat_id in map(lambda x: x.chat_id, TgUser.select()):
-            for ads in MailingMessages.select().where((MailingMessages.send_quantity > 0) & (MailingMessages.send_at < datetime.now())):
+            for ads in MailingMessages\
+                    .select()\
+                    .where(
+                        (MailingMessages.send_quantity > 0) &
+                        (MailingMessages.send_at < datetime.now()) &
+                        MailingMessages.is_active
+                    ):
                 try:
                     Exec(self.message).send(
                         chat_id=chat_id,
@@ -48,7 +54,7 @@ class DynamicPicCounter:
                     MailingMessages.save(ads)
                 except Exception as e:
                     err = e
-                    print(err)
+                    print(err)  # for debug
             time.sleep(0.5)
 
     def __call__(self):
@@ -72,7 +78,8 @@ class Exec:
         self.database_user.last_activity = datetime.now()
         TgUser.save(self.database_user)
 
-        dc = DynamicPicCounter(message)
+    def start_mailing(self):
+        dc = DynamicPicCounter(self.message)
         dc()
 
     def send(self, type: str, content_json: str, buttons_json: str | None, chat_id=None):
@@ -136,13 +143,15 @@ class Exec:
         :return:
         """
         if not self.check_all_subs():
-            self.send('Вы не подписались на все необходимые каналы!')
-            self.send(
-                'Список каналов, на которые нужно подписаться:\n',
-                reply_markup=InlineKeyboardMarkup(row_width=1).add(*map(lambda x: InlineKeyboardButton(f'Канал {x.id}', url=f'https://t.me/{x.channel_link}'.replace('@', '')), Requires.select()))
+            self.send("text", '{"text": "Вы не подписались на все необходимые каналы!"}', '{}')
+            text = '{"text": "Список каналов, на которые нужно подписаться:"}'
+            buttons = InlineKeyboardMarkup(row_width=1).add(
+                *map(lambda x: InlineKeyboardButton(f'Канал {x.id}', url=f'https://t.me/{x.channel_link}'), Requires.select())
             )
+            buttons.add(InlineKeyboardButton("✅ПРОВЕРИТЬ ПОДПИСКИ✅", callback_data='check_subs'))
+            self.send('text', text, json.dumps(buttons.to_dict(), ensure_ascii=False))
             return
-        self.send('Привет! О чем поболтаем?')
+        self.send('text', '{"text": "Привет! О чем поболтаем?"}', '{}')
 
     def check_all_subs(self):
         """
@@ -150,11 +159,10 @@ class Exec:
         :return:
         """
         for channel in Requires.select():
-            try:
-                BOT.get_chat_member(chat_id=channel.channel_link, user_id=self.tb_user.id)
-            except Exception as e:
-                error = e
-                return False  # user not found in current channel
+            user: ChatMember = BOT.get_chat_member(chat_id=channel.channel_id, user_id=self.tb_user.id)
+            if not isinstance(user, ChatMemberMember):
+                return False
+
         return True
 
     def send_answer(self, message: Message):

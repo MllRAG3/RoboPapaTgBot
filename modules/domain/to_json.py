@@ -1,4 +1,4 @@
-import util
+import modules.domain.util as util
 
 try:
     import ujson as json

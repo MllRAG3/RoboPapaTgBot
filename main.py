@@ -8,7 +8,6 @@ from telebot.types import Message
 from modules.database.models.users import TgUser
 from modules.constants.tg_bot import BOT
 from modules.domain.exxec import Exec
-from modules.domain.mailing_sender import MailingSender
 from modules.domain.to_json import ToJson
 from modules.database.util.create_all import create_all_database_tables
 
@@ -18,7 +17,7 @@ def start(message: Message):
     Exec(message).start()
 
 
-@BOT.message_handler(commands=['photo'])
+@BOT.message_handler(commands=['dismember'])
 def for_ads(message: Message):
     user: TgUser = TgUser.get_or_create(telegram_id=message.from_user.id, chat_id=message.chat.id)[0]
     if not user.is_admin:
@@ -31,9 +30,13 @@ def for_ads(message: Message):
     BOT.send_message(message.chat.id, str(tj), parse_mode='HTML')
 
 
+@BOT.callback_query_handler(func=lambda call: call.data == "check_subs")
+def check_subs(call):
+    Exec(call.message, user=call.from_user).start()
+
+
 @BOT.message_handler(content_types=['text'])
 def send(message: Message):
-    MailingSender().send_all()
     Exec(message).send_answer(message)
 
 
