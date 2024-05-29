@@ -24,6 +24,10 @@ def extract_buttons(message):
     return buttons
 
 
+def convert_text_message_to_json(text):
+    return json.dumps({'text': text}, ensure_ascii=False)
+
+
 class ToJsonAnswer:
     def __init__(self):
         self.message_seq = []

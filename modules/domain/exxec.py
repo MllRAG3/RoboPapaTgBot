@@ -10,8 +10,11 @@ except ImportError:
 
 from telebot.types import Message, User, InlineKeyboardMarkup, InlineKeyboardButton, ChatMember, ChatMemberMember
 import telebot.util as tb_util
+from telebot.apihelper import ApiTelegramException
 
 from modules.constants.tg_bot import BOT
+import modules.constants.message_texts as m_texts
+import modules.domain.util as util
 from modules.database.models.requireds import Requires
 from modules.domain.json_reader import JsonReader
 from modules.database.models.users import TgUser
@@ -83,6 +86,17 @@ class Exec:
         self.database_user.last_activity = datetime.now()
         TgUser.save(self.database_user)
 
+    def edit(self, **data):
+        try:
+            BOT.edit_message_text(**data, message_id=self.message.id, chat_id=self.chat_id)
+        except ApiTelegramException:
+            self.send(
+                'text',
+                content_json=util.convert_text_message_to_json(m_texts.MESSAGE_TO_EDIT_NOT_FOUND_ERROR),
+                buttons_json='{}'
+            )
+            BOT.edit_message_text(**data, message_id=self.message.id+1, chat_id=self.chat_id)
+
     def send(self, type: str, content_json: str, buttons_json: str | None, chat_id=None):
         content = json.loads(content_json)
         markup = InlineKeyboardMarkup.de_json(buttons_json if buttons_json != '{}' else None)
@@ -143,16 +157,29 @@ class Exec:
         Обрабатывает команду /start
         :return:
         """
-        if not self.check_all_subs():
-            self.send("text", '{"text": "Вы не подписались на все необходимые каналы!"}', '{}')
-            text = '{"text": "Список каналов, на которые нужно подписаться:"}'
+        if self.check_all_subs():
             buttons = InlineKeyboardMarkup(row_width=1).add(
-                *map(lambda x: InlineKeyboardButton(f'Канал {x.id}', url=x.channel_link), Requires.select())
+                InlineKeyboardButton('Начать общаться с папочкой', callback_data="start_talking"),
+                InlineKeyboardButton('Настройки', callback_data="settings")
             )
-            buttons.add(InlineKeyboardButton("✅ПРОВЕРИТЬ ПОДПИСКИ✅", callback_data='check_subs'))
-            self.send('text', text, json.dumps(buttons.to_dict(), ensure_ascii=False))
+            self.edit(text=m_texts.SUBSCRIBED_MESSAGE, reply_markup=buttons)
             return
-        self.send('text', '{"text": "Привет! О чем поболтаем?"}', '{}')
+
+        buttons = InlineKeyboardMarkup(row_width=1)\
+            .add(*map(lambda x: InlineKeyboardButton(f'Канал {x.id}', url=x.channel_link), Requires.select()))\
+            .add(InlineKeyboardButton("✅ПРОВЕРИТЬ ПОДПИСКИ✅", callback_data='check_subs'))
+
+        self.edit(text=m_texts.NOT_SUBSCRIBED_MESSAGE, reply_markup=buttons)
+
+    def start_talking(self):
+        self.edit(text=m_texts.START_TALKING_MESSAGE)
+
+    def settings(self):
+        buttons = InlineKeyboardMarkup().row(
+            InlineKeyboardButton('Предложка', url='https://t.me/...'),
+            InlineKeyboardButton('Главная', callback_data='check_subs')
+        )
+        self.edit(text=m_texts.SETTINGS_MESSAGE, reply_markup=buttons)
 
     def check_all_subs(self):
         """
@@ -180,11 +207,11 @@ class Exec:
         context_in = {
             'photo': "caption",
             'video': "caption",
-            'video_note': "",
-            'contact': "",
+            'video_note': "data",
+            'contact': "first_name",
             'text': "text",
-            'sticker': "",
-            'dice': "",
+            'sticker': "sticker",
+            'dice': "emoji",
             'voice': "caption",
             'document': "caption",
         }
