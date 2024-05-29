@@ -1,8 +1,8 @@
 from typing import Final
 import json
 
-REQUIRED_D_KEYS_FOR_KEY: Final[set] = {'by_user', 'by_bot'}
-REQUIRED_D_KEYS_FOR_ANSWER: Final[set] = {'data', 'buttons', 'type'}
+REQUIRED_D_KEYS_FOR_KEY: Final[set] = {'by_user', 'by_bot'}  # {"by_user": "", "by_bot": ""}
+REQUIRED_D_KEYS_FOR_ANSWER: Final[set] = {'data', 'buttons', 'type'}  # [{"data": "", "buttons": "", "type": ""}]
 
 
 def check_d_keys_for_key(dict_):

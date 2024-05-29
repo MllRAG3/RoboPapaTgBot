@@ -1,6 +1,6 @@
 import random
 import time
-from schedule import every, run_pending
+import schedule
 from datetime import datetime, timedelta
 
 try:
@@ -9,6 +9,8 @@ except ImportError:
     import json
 
 from telebot.types import Message, User, InlineKeyboardMarkup, InlineKeyboardButton, ChatMember, ChatMemberMember
+import telebot.util as tb_util
+
 from modules.constants.tg_bot import BOT
 from modules.database.models.requireds import Requires
 from modules.domain.json_reader import JsonReader
@@ -22,27 +24,26 @@ class DynamicPicCounter:
     def __init__(self, message: Message):
         self.message: Message = message
         self.is_working: bool = True
-        self.most_active_hour: int = 19
+        self.most_active_hour: int = 0
+        schedule.every().day.at("00:00").do(self.count_activity).tag("auto-update-user-activity")
 
-    def count_activity(self, n=1):
+    def stop_algorythm(self):
+        self.is_working = False
+
+    def count_activity(self, restart=True):
         activity = []
-        day_now = datetime.now().day
         for i in range(24):
-            activity.append({"hour": i, "users": TgUser.select().where(
-                (TgUser.last_activity.day == (day_now - 1)) &
-                (TgUser.last_activity.hour == i)
-            )})
-        self.most_active_hour = list(map(lambda x: x["hour"], sorted(activity, key=lambda y: y["users"])[:n]))
+            activity.append({"hour": i, "users": len(TgUser.select().where((TgUser.last_activity.hour == i)))})
+        self.most_active_hour = max(activity, key=lambda y: y["users"])["hour"]
+        if not restart:
+            return
+        self.stop_algorythm()
+        schedule.clear("send-mailing")
+        self.start_algorythm()
 
     def send_all(self):
         for chat_id in map(lambda x: x.chat_id, TgUser.select()):
-            for ads in MailingMessages\
-                    .select()\
-                    .where(
-                        (MailingMessages.send_quantity > 0) &
-                        (MailingMessages.send_at < datetime.now()) &
-                        MailingMessages.is_active
-                    ):
+            for ads in MailingMessages.select().where(MailingMessages.is_active):
                 try:
                     Exec(self.message).send(
                         chat_id=chat_id,
@@ -55,13 +56,12 @@ class DynamicPicCounter:
                 except Exception as e:
                     err = e
                     print(err)  # for debug
-            time.sleep(0.5)
 
-    def __call__(self):
-        every().day.at("00:00").do(self.count_activity)
-        every().day.at(f"{self.most_active_hour}:00").do(self.send_all)
+    def start_algorythm(self):
+        self.count_activity(restart=False)
+        schedule.every().day.at(f"{str(self.most_active_hour).rjust(2, '0')}:00").do(self.send_all).tag("send-mailing")
         while self.is_working:
-            run_pending()
+            schedule.run_pending()
             time.sleep(600)
 
 
@@ -78,9 +78,11 @@ class Exec:
         self.database_user.last_activity = datetime.now()
         TgUser.save(self.database_user)
 
+        self.start_mailing()
+
     def start_mailing(self):
         dc = DynamicPicCounter(self.message)
-        dc()
+        dc.start_algorythm()
 
     def send(self, type: str, content_json: str, buttons_json: str | None, chat_id=None):
         content = json.loads(content_json)
@@ -146,7 +148,7 @@ class Exec:
             self.send("text", '{"text": "Вы не подписались на все необходимые каналы!"}', '{}')
             text = '{"text": "Список каналов, на которые нужно подписаться:"}'
             buttons = InlineKeyboardMarkup(row_width=1).add(
-                *map(lambda x: InlineKeyboardButton(f'Канал {x.id}', url=f'https://t.me/{x.channel_link}'), Requires.select())
+                *map(lambda x: InlineKeyboardButton(f'Канал {x.id}', url=x.channel_link), Requires.select())
             )
             buttons.add(InlineKeyboardButton("✅ПРОВЕРИТЬ ПОДПИСКИ✅", callback_data='check_subs'))
             self.send('text', text, json.dumps(buttons.to_dict(), ensure_ascii=False))
@@ -173,6 +175,9 @@ class Exec:
         :return:
         """
         global CONTEXT
+        if tb_util.is_command(message.text):
+            return
+
         for to_send in JsonReader(message, CONTEXT)():
             CONTEXT['context'] = to_send['type_value']
             CONTEXT['dice'] = self.send(**to_send)
