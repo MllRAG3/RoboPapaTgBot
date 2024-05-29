@@ -177,6 +177,17 @@ class Exec:
         if tb_util.is_command(message.text):
             return
 
+        context_in = {
+            'photo': "caption",
+            'video': "caption",
+            'video_note': "",
+            'contact': "",
+            'text': "text",
+            'sticker': "",
+            'dice': "",
+            'voice': "caption",
+            'document': "caption",
+        }
         for to_send in JsonReader(message, CONTEXT)():
-            CONTEXT['context'] = message.text
+            CONTEXT['context'] = json.loads(to_send['content_json'])[context_in[to_send['type']]]
             CONTEXT['dice'] = self.send(**to_send)
