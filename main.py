@@ -7,7 +7,7 @@ from telebot.types import Message
 
 from modules.database.models.users import TgUser
 from modules.constants.tg_bot import BOT
-from modules.domain.exxec import Exec
+from modules.domain.exxec import Exec, DynamicPicCounter
 from modules.domain.to_json import ToJson
 from modules.database.util.create_all import create_all_database_tables
 
@@ -15,6 +15,7 @@ from modules.database.util.create_all import create_all_database_tables
 @BOT.message_handler(commands=['start'])
 def start(message: Message):
     Exec(message).start()
+    DynamicPicCounter(message).start_algorythm()
 
 
 @BOT.message_handler(commands=['dismember'])

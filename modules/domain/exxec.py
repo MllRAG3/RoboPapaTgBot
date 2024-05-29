@@ -42,6 +42,7 @@ class DynamicPicCounter:
         self.start_algorythm()
 
     def send_all(self):
+        print(1)
         for chat_id in map(lambda x: x.chat_id, TgUser.select()):
             for ads in MailingMessages.select().where(MailingMessages.is_active):
                 try:
@@ -59,7 +60,11 @@ class DynamicPicCounter:
 
     def start_algorythm(self):
         self.count_activity(restart=False)
-        schedule.every().day.at(f"{str(self.most_active_hour).rjust(2, '0')}:00").do(self.send_all).tag("send-mailing")
+        schedule.every()\
+            .day\
+            .at(f"{str(self.most_active_hour - 1).rjust(2, '0')}:45")\
+            .do(self.send_all).tag("send-mailing")
+
         while self.is_working:
             schedule.run_pending()
             time.sleep(600)
@@ -77,12 +82,6 @@ class Exec:
 
         self.database_user.last_activity = datetime.now()
         TgUser.save(self.database_user)
-
-        self.start_mailing()
-
-    def start_mailing(self):
-        dc = DynamicPicCounter(self.message)
-        dc.start_algorythm()
 
     def send(self, type: str, content_json: str, buttons_json: str | None, chat_id=None):
         content = json.loads(content_json)
