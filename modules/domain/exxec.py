@@ -45,7 +45,6 @@ class DynamicPicCounter:
         self.start_algorythm()
 
     def send_all(self):
-        print(1)
         for chat_id in map(lambda x: x.chat_id, TgUser.select()):
             for ads in MailingMessages.select().where(MailingMessages.is_active):
                 try:
@@ -176,7 +175,7 @@ class Exec:
 
     def settings(self):
         buttons = InlineKeyboardMarkup().row(
-            InlineKeyboardButton('Предложка', url='https://t.me/...'),
+            InlineKeyboardButton('Предложка', url='https://t.me/RobopapochkaSupport_Bot'),
             InlineKeyboardButton('Главная', callback_data='check_subs')
         )
         self.edit(text=m_texts.SETTINGS_MESSAGE, reply_markup=buttons)
