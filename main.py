@@ -36,6 +36,16 @@ def check_subs(call):
     Exec(call.message, user=call.from_user).start()
 
 
+@BOT.callback_query_handler(func=lambda call: call.data == "start_talking")
+def check_subs(call):
+    Exec(call.message, user=call.from_user).start_talking()
+
+
+@BOT.callback_query_handler(func=lambda call: call.data == "settings")
+def check_subs(call):
+    Exec(call.message, user=call.from_user).settings()
+
+
 @BOT.message_handler(content_types=['text'])
 def send(message: Message):
     Exec(message).send_answer(message)
