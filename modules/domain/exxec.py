@@ -130,6 +130,8 @@ class Exec:
         self.database_user.last_activity = datetime.now()
         TgUser.save(self.database_user)
 
+        self.check_subs_with_callback()
+
     def edit(self, **data) -> None:
         """
         Безопасно изменяет сообщение, отправленное ботом
@@ -146,14 +148,14 @@ class Exec:
             )
             BOT.edit_message_text(**data, message_id=self.message.id+1, chat_id=self.chat_id)
 
-    def send(self, type: str, content_json: str, buttons_json: str | None, chat_id=None) -> None:
+    def send(self, type: str, content_json: str, buttons_json: str | None, chat_id=None) -> int:
         """
         Отправляет сообщение типа type в чат
         :param type: Тип сообщения
         :param content_json: Данные для отправки в виде JSON-словаря
         :param buttons_json: Данные для кнопок в виде JSON-словаря
         :param chat_id: ID чата (по умолчанию текущее)
-        :return:
+        :return: Значение выпавшего случайного события если type=="dice" иначе 0
         """
         content = json.loads(content_json)
         markup = InlineKeyboardMarkup.de_json(buttons_json if buttons_json != '{}' else None)
@@ -209,6 +211,16 @@ class Exec:
 
         return 0
 
+    def check_subs_with_callback(self):
+        if self.check_all_subs():
+            return
+
+        buttons = InlineKeyboardMarkup(row_width=1) \
+            .add(*map(lambda x: InlineKeyboardButton(f'Канал {x.id}', url=x.channel_link), Requires.select())) \
+            .add(InlineKeyboardButton("✅ПРОВЕРИТЬ ПОДПИСКИ✅", callback_data='check_subs'))
+
+        self.edit(text=m_texts.NOT_SUBSCRIBED_MESSAGE, reply_markup=buttons)
+
     def start(self) -> None:
         """
         Обрабатывает команду /start
@@ -222,11 +234,7 @@ class Exec:
             self.edit(text=m_texts.SUBSCRIBED_MESSAGE, reply_markup=buttons)
             return
 
-        buttons = InlineKeyboardMarkup(row_width=1)\
-            .add(*map(lambda x: InlineKeyboardButton(f'Канал {x.id}', url=x.channel_link), Requires.select()))\
-            .add(InlineKeyboardButton("✅ПРОВЕРИТЬ ПОДПИСКИ✅", callback_data='check_subs'))
-
-        self.edit(text=m_texts.NOT_SUBSCRIBED_MESSAGE, reply_markup=buttons)
+        self.check_subs_with_callback()
 
     def start_talking(self) -> None:
         """

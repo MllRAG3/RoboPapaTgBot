@@ -31,18 +31,23 @@ def for_ads(message: Message):
     BOT.send_message(message.chat.id, str(tj), parse_mode='HTML')
 
 
+@BOT.message_handler(regexp="СТОП, ХВАТИТ")
+def stop_talking(message: Message):
+    Exec(message).start()
+
+
 @BOT.callback_query_handler(func=lambda call: call.data == "check_subs")
 def check_subs(call):
     Exec(call.message, user=call.from_user).start()
 
 
 @BOT.callback_query_handler(func=lambda call: call.data == "start_talking")
-def check_subs(call):
+def start_talking(call):
     Exec(call.message, user=call.from_user).start_talking()
 
 
 @BOT.callback_query_handler(func=lambda call: call.data == "settings")
-def check_subs(call):
+def settings(call):
     Exec(call.message, user=call.from_user).settings()
 
 
