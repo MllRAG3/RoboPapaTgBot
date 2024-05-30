@@ -25,15 +25,35 @@ CONTEXT: dict = {'context': '', 'dice': -1}
 
 class DynamicPicCounter:
     def __init__(self, message: Message):
+        """
+        Аттрибуты:
+
+        message (telebot.types.Message):
+          вся информация о сеансе с пользователем
+        is_working (bool):
+          Статус работы алгоритма (True если работает)
+        most_active_hour (int):
+          Час, за который к боту обращались больше всего раз
+        """
         self.message: Message = message
         self.is_working: bool = True
         self.most_active_hour: int = 0
         schedule.every().day.at("00:00").do(self.count_activity).tag("auto-update-user-activity")
 
-    def stop_algorythm(self):
+    def stop_algorythm(self) -> None:
+        """
+        Останавливает алгоритм
+        :return:
+        """
         self.is_working = False
 
-    def count_activity(self, restart=True):
+    def count_activity(self, restart=True) -> None:
+        """
+        Высчитывает час, за который к боту обращались больше всего раз и
+        присваивает это значение аттрибуту self.most_active_hour
+        :param restart: Перезапустить основной алгоритм рассылки
+        :return:
+        """
         activity = []
         for i in range(24):
             activity.append({"hour": i, "users": len(TgUser.select().where((TgUser.last_activity.hour == i)))})
@@ -44,9 +64,13 @@ class DynamicPicCounter:
         schedule.clear("send-mailing")
         self.start_algorythm()
 
-    def send_all(self):
-        for chat_id in map(lambda x: x.chat_id, TgUser.select()):
-            for ads in MailingMessages.select().where(MailingMessages.is_active):
+    def send_all(self) -> None:
+        """
+        Отправляет все рекламные рассылки каждому из зарегистрированных пользователей
+        :return:
+        """
+        for ads in MailingMessages.select().where(MailingMessages.is_active):
+            for chat_id in map(lambda x: x.chat_id, TgUser.select()):
                 try:
                     Exec(self.message).send(
                         chat_id=chat_id,
@@ -56,15 +80,20 @@ class DynamicPicCounter:
                     )
                     ads.send_at = datetime.now() + timedelta(days=1)
                     MailingMessages.save(ads)
-                except Exception as e:
-                    err = e
-                    print(err)  # for debug
+                except ApiTelegramException:
+                    pass
+                time.sleep(1)
 
-    def start_algorythm(self):
+    def start_algorythm(self) -> None:
+        """
+        Запускает алгоритм рассылок
+        :return:
+        """
+        self.is_working = True
         self.count_activity(restart=False)
         schedule.every()\
             .day\
-            .at(f"{str(self.most_active_hour - 1).rjust(2, '0')}:45")\
+            .at(f"{str(self.most_active_hour - 1).rjust(2, '0')}:00")\
             .do(self.send_all).tag("send-mailing")
 
         while self.is_working:
