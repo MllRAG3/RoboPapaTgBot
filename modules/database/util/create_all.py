@@ -7,6 +7,10 @@ from modules.database.database import db
 
 
 def create_all_database_tables():
+    """
+    Создает все таблицы в tg_bot_database
+    :return:
+    """
     with db:
         db.create_tables([
             Requires,

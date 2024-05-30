@@ -8,7 +8,14 @@ try:
 except ImportError:
     import json
 
-from telebot.types import Message, User, InlineKeyboardMarkup, InlineKeyboardButton, ChatMember, ChatMemberMember
+from telebot.types import Message, \
+    User, \
+    InlineKeyboardMarkup, \
+    InlineKeyboardButton, \
+    ChatMember, \
+    ChatMemberMember, \
+    ReplyKeyboardMarkup, \
+    KeyboardButton
 import telebot.util as tb_util
 from telebot.apihelper import ApiTelegramException
 
@@ -25,15 +32,35 @@ CONTEXT: dict = {'context': '', 'dice': -1}
 
 class DynamicPicCounter:
     def __init__(self, message: Message):
+        """
+        Аттрибуты:
+
+        message (telebot.types.Message):
+          вся информация о сеансе с пользователем
+        is_working (bool):
+          Статус работы алгоритма (True если работает)
+        most_active_hour (int):
+          Час, за который к боту обращались больше всего раз
+        """
         self.message: Message = message
         self.is_working: bool = True
         self.most_active_hour: int = 0
         schedule.every().day.at("00:00").do(self.count_activity).tag("auto-update-user-activity")
 
-    def stop_algorythm(self):
+    def stop_algorythm(self) -> None:
+        """
+        Останавливает алгоритм
+        :return:
+        """
         self.is_working = False
 
-    def count_activity(self, restart=True):
+    def count_activity(self, restart=True) -> None:
+        """
+        Высчитывает час, за который к боту обращались больше всего раз и
+        присваивает это значение аттрибуту self.most_active_hour
+        :param restart: Перезапустить основной алгоритм рассылки
+        :return:
+        """
         activity = []
         for i in range(24):
             activity.append({"hour": i, "users": len(TgUser.select().where((TgUser.last_activity.hour == i)))})
@@ -44,9 +71,13 @@ class DynamicPicCounter:
         schedule.clear("send-mailing")
         self.start_algorythm()
 
-    def send_all(self):
-        for chat_id in map(lambda x: x.chat_id, TgUser.select()):
-            for ads in MailingMessages.select().where(MailingMessages.is_active):
+    def send_all(self) -> None:
+        """
+        Отправляет все рекламные рассылки каждому из зарегистрированных пользователей
+        :return:
+        """
+        for ads in MailingMessages.select().where(MailingMessages.is_active):
+            for chat_id in map(lambda x: x.chat_id, TgUser.select()):
                 try:
                     Exec(self.message).send(
                         chat_id=chat_id,
@@ -56,15 +87,20 @@ class DynamicPicCounter:
                     )
                     ads.send_at = datetime.now() + timedelta(days=1)
                     MailingMessages.save(ads)
-                except Exception as e:
-                    err = e
-                    print(err)  # for debug
+                except ApiTelegramException:
+                    pass
+                time.sleep(1)
 
-    def start_algorythm(self):
+    def start_algorythm(self) -> None:
+        """
+        Запускает алгоритм рассылок
+        :return:
+        """
+        self.is_working = True
         self.count_activity(restart=False)
         schedule.every()\
             .day\
-            .at(f"{str(self.most_active_hour - 1).rjust(2, '0')}:45")\
+            .at(f"{str(self.most_active_hour - 1).rjust(2, '0')}:00")\
             .do(self.send_all).tag("send-mailing")
 
         while self.is_working:
@@ -75,7 +111,16 @@ class DynamicPicCounter:
 class Exec:
     def __init__(self, message: Message, user: User | None = None):
         """
-        :param message: Объект класса telebot.types.Message - информация обо всем контексте общения с ботом
+        Аттрибуты:
+
+        message (telebot.types.Message):
+          вся информация о сеансе с пользователем
+        tb_user (telebot.types.User):
+          вся информация о пользователе, отправляющем запросы
+        chat_id (int):
+          ID чата
+        database_user (TgUser):
+          Информация о пользователе из базы данных (tg_bot_database)
         """
         self.message: Message = message
         self.tb_user: User = message.from_user if user is None else user
@@ -85,7 +130,14 @@ class Exec:
         self.database_user.last_activity = datetime.now()
         TgUser.save(self.database_user)
 
-    def edit(self, **data):
+        self.check_subs_with_callback()
+
+    def edit(self, **data) -> None:
+        """
+        Безопасно изменяет сообщение, отправленное ботом
+        :param data: Данные для метода TeleBot.edit_message_text(...)
+        :return:
+        """
         try:
             BOT.edit_message_text(**data, message_id=self.message.id, chat_id=self.chat_id)
         except ApiTelegramException:
@@ -96,7 +148,15 @@ class Exec:
             )
             BOT.edit_message_text(**data, message_id=self.message.id+1, chat_id=self.chat_id)
 
-    def send(self, type: str, content_json: str, buttons_json: str | None, chat_id=None):
+    def send(self, type: str, content_json: str, buttons_json: str | None, chat_id=None) -> int:
+        """
+        Отправляет сообщение типа type в чат
+        :param type: Тип сообщения
+        :param content_json: Данные для отправки в виде JSON-словаря
+        :param buttons_json: Данные для кнопок в виде JSON-словаря
+        :param chat_id: ID чата (по умолчанию текущее)
+        :return: Значение выпавшего случайного события если type=="dice" иначе 0
+        """
         content = json.loads(content_json)
         markup = InlineKeyboardMarkup.de_json(buttons_json if buttons_json != '{}' else None)
         if chat_id is None:
@@ -151,7 +211,17 @@ class Exec:
 
         return 0
 
-    def start(self):
+    def check_subs_with_callback(self):
+        if self.check_all_subs():
+            return
+
+        buttons = InlineKeyboardMarkup(row_width=1) \
+            .add(*map(lambda x: InlineKeyboardButton(f'Канал {x.id}', url=x.channel_link), Requires.select())) \
+            .add(InlineKeyboardButton("✅ПРОВЕРИТЬ ПОДПИСКИ✅", callback_data='check_subs'))
+
+        self.edit(text=m_texts.NOT_SUBSCRIBED_MESSAGE, reply_markup=buttons)
+
+    def start(self) -> None:
         """
         Обрабатывает команду /start
         :return:
@@ -164,16 +234,21 @@ class Exec:
             self.edit(text=m_texts.SUBSCRIBED_MESSAGE, reply_markup=buttons)
             return
 
-        buttons = InlineKeyboardMarkup(row_width=1)\
-            .add(*map(lambda x: InlineKeyboardButton(f'Канал {x.id}', url=x.channel_link), Requires.select()))\
-            .add(InlineKeyboardButton("✅ПРОВЕРИТЬ ПОДПИСКИ✅", callback_data='check_subs'))
+        self.check_subs_with_callback()
 
-        self.edit(text=m_texts.NOT_SUBSCRIBED_MESSAGE, reply_markup=buttons)
+    def start_talking(self) -> None:
+        """
+        Начинает разговор с пользователем
+        :return:
+        """
+        buttons = ReplyKeyboardMarkup().add(KeyboardButton(text="СТОП, ХВАТИТ"))
+        self.edit(text=m_texts.START_TALKING_MESSAGE, reply_markup=buttons)
 
-    def start_talking(self):
-        self.edit(text=m_texts.START_TALKING_MESSAGE)
-
-    def settings(self):
+    def settings(self) -> None:
+        """
+        Обрабатывает страницу настроек
+        :return:
+        """
         buttons = InlineKeyboardMarkup().row(
             InlineKeyboardButton('Предложка', url='https://t.me/RobopapochkaSupport_Bot'),
             InlineKeyboardButton('Главная', callback_data='check_subs')
