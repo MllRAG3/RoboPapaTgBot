@@ -6,18 +6,24 @@ REQUIRED_D_KEYS_FOR_ANSWER: Final[set] = {'data', 'buttons', 'type'}  # [{"data"
 
 
 def check_d_keys_for_key(dict_):
+    """Проверяет наличие всех необходимых ключей в словаре (для таблицы Key)"""
     if set(dict_.keys()) != REQUIRED_D_KEYS_FOR_KEY:
         raise KeyError(f'Недостаточно ключей!\nНеобходимы: {REQUIRED_D_KEYS_FOR_KEY}\nПолучены: {set(dict_.keys)}')
     return True
 
 
 def check_d_keys_for_answer(dict_):
+    """Проверяет наличие всех необходимых ключей в словаре (для таблицы Answer)"""
     if set(dict_.keys()) != REQUIRED_D_KEYS_FOR_ANSWER:
         raise KeyError(f'Недостаточно ключей!\nНеобходимы: {REQUIRED_D_KEYS_FOR_ANSWER}\nПолучены: {set(dict_.keys)}')
     return True
 
 
 def extract_buttons(message):
+    """
+    :param message: Информация о сообщении, откуда надо извлечь кнопки
+    :return: Словарь с информациях о кнопках
+    """
     buttons = message.reply_markup
     if buttons:
         buttons = buttons.to_dict()
@@ -25,10 +31,17 @@ def extract_buttons(message):
 
 
 def convert_text_message_to_json(text):
+    """
+    :param text: Текст сообщения
+    :return: JSON-строку со специальным словарем для метода Exec.send(...)
+    """
     return json.dumps({'text': text}, ensure_ascii=False)
 
 
 class ToJsonAnswer:
+    """
+    Для преобразования сообщений в специальный JSON-формат
+    """
     def __init__(self):
         self.message_seq = []
 
