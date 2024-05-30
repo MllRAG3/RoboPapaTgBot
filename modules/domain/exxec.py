@@ -8,7 +8,14 @@ try:
 except ImportError:
     import json
 
-from telebot.types import Message, User, InlineKeyboardMarkup, InlineKeyboardButton, ChatMember, ChatMemberMember
+from telebot.types import Message, \
+    User, \
+    InlineKeyboardMarkup, \
+    InlineKeyboardButton, \
+    ChatMember, \
+    ChatMemberMember, \
+    ReplyKeyboardMarkup, \
+    KeyboardButton
 import telebot.util as tb_util
 from telebot.apihelper import ApiTelegramException
 
@@ -104,7 +111,16 @@ class DynamicPicCounter:
 class Exec:
     def __init__(self, message: Message, user: User | None = None):
         """
-        :param message: Объект класса telebot.types.Message - информация обо всем контексте общения с ботом
+        Аттрибуты:
+
+        message (telebot.types.Message):
+          вся информация о сеансе с пользователем
+        tb_user (telebot.types.User):
+          вся информация о пользователе, отправляющем запросы
+        chat_id (int):
+          ID чата
+        database_user (TgUser):
+          Информация о пользователе из базы данных (tg_bot_database)
         """
         self.message: Message = message
         self.tb_user: User = message.from_user if user is None else user
@@ -114,7 +130,12 @@ class Exec:
         self.database_user.last_activity = datetime.now()
         TgUser.save(self.database_user)
 
-    def edit(self, **data):
+    def edit(self, **data) -> None:
+        """
+        Безопасно изменяет сообщение, отправленное ботом
+        :param data: Данные для метода TeleBot.edit_message_text(...)
+        :return:
+        """
         try:
             BOT.edit_message_text(**data, message_id=self.message.id, chat_id=self.chat_id)
         except ApiTelegramException:
@@ -125,7 +146,15 @@ class Exec:
             )
             BOT.edit_message_text(**data, message_id=self.message.id+1, chat_id=self.chat_id)
 
-    def send(self, type: str, content_json: str, buttons_json: str | None, chat_id=None):
+    def send(self, type: str, content_json: str, buttons_json: str | None, chat_id=None) -> None:
+        """
+        Отправляет сообщение типа type в чат
+        :param type: Тип сообщения
+        :param content_json: Данные для отправки в виде JSON-словаря
+        :param buttons_json: Данные для кнопок в виде JSON-словаря
+        :param chat_id: ID чата (по умолчанию текущее)
+        :return:
+        """
         content = json.loads(content_json)
         markup = InlineKeyboardMarkup.de_json(buttons_json if buttons_json != '{}' else None)
         if chat_id is None:
@@ -180,7 +209,7 @@ class Exec:
 
         return 0
 
-    def start(self):
+    def start(self) -> None:
         """
         Обрабатывает команду /start
         :return:
@@ -199,10 +228,19 @@ class Exec:
 
         self.edit(text=m_texts.NOT_SUBSCRIBED_MESSAGE, reply_markup=buttons)
 
-    def start_talking(self):
-        self.edit(text=m_texts.START_TALKING_MESSAGE)
+    def start_talking(self) -> None:
+        """
+        Начинает разговор с пользователем
+        :return:
+        """
+        buttons = ReplyKeyboardMarkup().add(KeyboardButton(text="СТОП, ХВАТИТ"))
+        self.edit(text=m_texts.START_TALKING_MESSAGE, reply_markup=buttons)
 
-    def settings(self):
+    def settings(self) -> None:
+        """
+        Обрабатывает страницу настроек
+        :return:
+        """
         buttons = InlineKeyboardMarkup().row(
             InlineKeyboardButton('Предложка', url='https://t.me/RobopapochkaSupport_Bot'),
             InlineKeyboardButton('Главная', callback_data='check_subs')
