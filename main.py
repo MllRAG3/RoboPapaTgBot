@@ -1,3 +1,4 @@
+"""Главный файл"""
 try:
     import ujson as json
 except ImportError:
