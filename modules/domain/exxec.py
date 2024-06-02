@@ -146,6 +146,7 @@ class Exec:
                 content_json=util.convert_text_message_to_json(m_texts.MESSAGE_TO_EDIT_NOT_FOUND_ERROR),
                 buttons_json='{}'
             )
+            time.sleep(0.5)
             BOT.edit_message_text(**data, message_id=self.message.id+1, chat_id=self.chat_id)
 
     def send(self, type: str, content_json: str, buttons_json: str | None, chat_id=None) -> int:
